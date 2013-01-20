@@ -1,0 +1,75 @@
+CREATE DEFINER=`root`@`localhost` PROCEDURE `set_Location`(CourseName Varchar(45), CourseSection Varchar(45), Strttime Varchar(7), endtime Varchar(7), DofW Varchar(7), Loc Varchar(45), out statusCode int)
+BEGIN
+declare noOfStuds int default 0; 
+set statusCode=0;
+set @noOfStuds=(select ifnull((select count(Student_FK) from Student_courses where course_FK=(select Course_PK from course where Course_Name=CourseName and Course_Section=CourseSection)),0));
+
+if @noOfStuds >0 then 
+    set statusCode=17;
+else
+    update Course set Start=Strttime,end=endtime,DOW=DofW,Location=Loc where Course_Name=CourseName and Course_Section=CourseSection;
+    set statusCode=0;
+end if;
+select statusCode;
+END
+
+
+-- --------------------------------------------------------------------------------
+-- Routine DDL
+-- --------------------------------------------------------------------------------
+DELIMITER $$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `Remove_Course`(name varchar(45),section varchar(45), forceUn int(2), out statusCode int)
+BEGIN
+declare CID int default -1;
+declare num int default 0;
+set statusCode=0;
+
+set @CID=(select ifnull((select Course_PK from course where Course_Name = name and Course_Section = section),-1));
+
+if @CID = -1 then
+    set statusCode=21; -- no_such_course
+else
+    if forceUn = 0 then
+        set @num=(select count(Student_Courses_PK) from Student_Courses where Course_FK=@CID);
+        if @num = 0 then
+            delete from course where Course_PK=@CID;
+        else
+            set statusCode=17; -- has_students
+        end if;
+    else
+        delete from student_courses where Course_FK=@CID;
+        delete from course where Course_PK=@CID;
+    end if;
+ END if; 
+ 
+select statusCode;
+END
+
+
+
+-- --------------------------------------------------------------------------------
+-- Routine DDL
+-- --------------------------------------------------------------------------------
+DELIMITER $$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `Remove_Office_Hours`(instructor_id Varchar(9),strtime Varchar(5),endtime Varchar(5),dow Varchar(6),loc Varchar(15),out statusCode int)
+BEGIN
+    declare ID int default -1;
+    set statusCode=0;
+    set@ID=(select ifnull((select Instructor_PK from instructor where Instructor_Emp_ID=instructor_id),-1));
+    if@ID=-1
+    then set statusCode=19;
+    else
+        set@ID=(select ifnull((select Instructor_oh_FK From instructor_oh Where Instructor_oh_FK=@ID
+        and Start =strtime and End = endtime and DOW = dow and Location = loc),-1));
+            if @ID = -1 then
+            set statusCode=18;
+        else
+            delete From instructor_oh Where Instructor_oh_FK=(Select Instructor_PK from Instructor where Instructor_Emp_ID =instructor_id)
+            and start = strtime and end = endtime and DOW = dow and Location = loc;
+        End if;
+    end if;
+select statusCode;
+
+END
